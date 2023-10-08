@@ -1,10 +1,10 @@
 # DacadePunks: NFT Staking on CELO Alfajores
 
-Dapp URL: 
+Dapp URL: https://dacade-nft-staking.vercel.app/
 
 ## Features:
 
-Mint DacadePunks NFT
+Mint DacadePunks NFT (Max 5 tokens per transaction)
 
 Stake your DacadePunks NFT and earn DPT token as staking reward
 
