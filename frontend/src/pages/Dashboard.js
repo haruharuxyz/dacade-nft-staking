@@ -13,6 +13,7 @@ import networksMap from "../utils/networksMap.json";
 const Dashboard = () => {
     let navigate = useNavigate();
     const data = useSelector((state) => state.blockchain.value)
+    // State for application information
     const [appInfo, setAppInfo] = useState({
         nftContractBalance: 0,
         nftContractPaused: 1,
@@ -20,129 +21,101 @@ const Dashboard = () => {
         mintCost: 0
     })
 
+    // State for loading indicator
     const [loading, setLoading] = useState(false)
 
+    // Function to fetch application information from the Ethereum network
+    // Function to fetch application information from the Ethereum network
     async function getAppInfo() {
-        if (data.network === networksMap[networkDeployedTo] & data.account !== "") {
-            const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-            const nft_contract = new ethers.Contract(nftContractAddress, nftContract.abi, provider);
+        if (data.network === networksMap[networkDeployedTo] && data.account !== "") {
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                const nft_contract = new ethers.Contract(nftContractAddress, nftContract.abi, provider);
 
-            if (ownerAddress !== data.account) {
-                navigate("/")
+                if (ownerAddress !== data.account) {
+                    navigate("/");
+                    return;
+                }
+
+                const balance = await provider.getBalance(nftContractAddress);
+                const ispaused = await nft_contract.callStatic.paused();
+                const _fee = await nft_contract.callStatic.cost();
+                const _maxMintAmount = await nft_contract.callStatic.maxMintAmountPerTx();
+
+                // Update the appInfo state with fetched data
+                setAppInfo({
+                    nftContractBalance: Number(ethers.utils.formatUnits(balance, "ether")),
+                    nftContractPaused: Number(ispaused),
+                    maxMintAmountPerTx: _maxMintAmount,
+                    mintCost: Number(ethers.utils.formatUnits(_fee, "ether")),
+                });
+            } catch (error) {
+                // Handle errors and navigate back to the homepage
+                navigate("/");
+                console.error(error);
             }
-
-            const balance = await provider.getBalance(nftContractAddress);
-            const ispaused = await nft_contract.callStatic.paused()
-            const _fee = await nft_contract.callStatic.cost()
-            const _maxMintAmount = await nft_contract.callStatic.maxMintAmountPerTx()
-
-            setAppInfo({
-                nftContractBalance: Number(ethers.utils.formatUnits(balance, "ether")),
-                nftContractPaused: Number(ispaused),
-                maxMintAmountPerTx: _maxMintAmount,
-                mintCost: Number(ethers.utils.formatUnits(_fee, "ether")),
-            })
         } else {
-            navigate("/")
+            // Handle cases where the network is not compatible or the user is not authenticated
+            navigate("/");
         }
     }
 
+    // Function to handle Ethereum transactions and update the loading state
+    async function handleTransaction(action, transactionFunction) {
+        if (data.network !== networksMap[networkDeployedTo]) {
+            return;
+        }
+    
+        try {
+            setLoading(true);
+            const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            const signer = provider.getSigner();
+            const nft_contract = new ethers.Contract(nftContractAddress, nftContract.abi, signer);
+    
+            const transaction = await transactionFunction(nft_contract);
+            await transaction.wait();
+            setLoading(false);
+            window.location.reload();
+        } catch (error) {
+            setLoading(false);
+            window.alert("An error has occurred");
+            console.error(error);
+        }
+    }
+
+    // Function to change the mint cost for NFTs
     async function changeMintCost() {
-        if (data.network === networksMap[networkDeployedTo]) {
-            try {
-                setLoading(true)
-                const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                const signer = provider.getSigner()
-                const nft_contract = new ethers.Contract(nftContractAddress, nftContract.abi, signer);
-                const change_tx = await nft_contract.setCost(
-                    ethers.utils.parseEther(String(appInfo.mintCost), "ether")
-                )
-                await change_tx.wait();
-                setLoading(false)
-                window.location.reload()
-            } catch (error) {
-                setLoading(false)
-                window.alert("An error has occured")
-                console.log(error)
-            }
-        }
+        await handleTransaction("Change Mint Cost", async (contract) => {
+            return contract.setCost(ethers.utils.parseEther(String(appInfo.mintCost), "ether"));
+        });
     }
-
+    
+     // Function to change the maximum mint amount per transaction
     async function changeMintAmount() {
-        if (data.network === networksMap[networkDeployedTo]) {
-            try {
-                setLoading(true)
-                const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                const signer = provider.getSigner()
-                const nft_contract = new ethers.Contract(nftContractAddress, nftContract.abi, signer);
-                const change_tx = await nft_contract.setMaxMintAmountPerTx(appInfo.maxMintAmountPerTx)
-                await change_tx.wait();
-                setLoading(false)
-                window.location.reload()
-            } catch (error) {
-                setLoading(false)
-                window.alert("An error has occured")
-                console.log(error)
-            }
-        }
+        await handleTransaction("Change Mint Amount", async (contract) => {
+            return contract.setMaxMintAmountPerTx(appInfo.maxMintAmountPerTx);
+        });
     }
-
+    
+    // Function to withdraw funds from the contract
     async function withdraw() {
-        if (data.network === networksMap[networkDeployedTo]) {
-            try {
-                setLoading(true)
-                const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                const signer = provider.getSigner()
-                const nft_contract = new ethers.Contract(nftContractAddress, nftContract.abi, signer);
-                const withdraw_tx = await nft_contract.withdraw()
-                await withdraw_tx.wait();
-                setLoading(false)
-                window.location.reload()
-            } catch (error) {
-                setLoading(false)
-                window.alert("An error has occured")
-                console.log(error)
-            }
-        }
+        await handleTransaction("Withdraw Funds", async (contract) => {
+            return contract.withdraw();
+        });
     }
 
+    // Function to change the contract state (pause/unpause)    
     async function changeContractState() {
-        if (data.network === networksMap[networkDeployedTo]) {
-            if (appInfo.nftContractPaused == 1) {
-                try {
-                    setLoading(true)
-                    const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                    const signer = provider.getSigner()
-                    const nft_contract = new ethers.Contract(nftContractAddress, nftContract.abi, signer);
-                    const unpause_tx = await nft_contract.pause(2)
-                    await unpause_tx.wait();
-                    setLoading(false)
-                    window.location.reload()
-                } catch (error) {
-                    setLoading(false)
-                    window.alert("An error has occured")
-                    console.log(error)
-                }
+        await handleTransaction("Change Contract State", async (contract) => {
+            if (appInfo.nftContractPaused === 1) {
+                return contract.pause(2);
             } else {
-                try {
-                    setLoading(true)
-                    const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
-                    const signer = provider.getSigner()
-                    const nft_contract = new ethers.Contract(nftContractAddress, nftContract.abi, signer);
-                    const pause_tx = await nft_contract.pause(1)
-                    await pause_tx.wait();
-                    setLoading(false)
-                    window.location.reload()
-                } catch (error) {
-                    setLoading(false)
-                    window.alert("An error has occured")
-                    console.log(error)
-                }
+                return contract.pause(1);
             }
-
-        }
+        });
     }
 
+    // Effect hook to fetch application information on changes
     useEffect(() => {
         if (window.ethereum !== undefined) {
             getAppInfo()
