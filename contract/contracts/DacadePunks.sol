@@ -56,6 +56,49 @@ contract DacadePunks is ERC721AQueryable, Ownable {
     error DacadePunks__QueryForNonExistentToken();
 
     /**
+     * @notice Event emitted when a user mints NFTs.
+     * @param user The address of the user who minted the NFTs.
+     * @param amount The number of NFTs minted.
+     */
+    event NFTMinted(address indexed user, uint256 amount);
+
+    /**
+     * @notice Event emitted when the contract owner changes the minting cost.
+     * @param owner The address of the contract owner who updated the cost.
+     * @param newCost The new cost to mint a single NFT.
+     */
+    event MintingCostUpdated(address indexed owner, uint256 newCost);
+
+    /**
+     * @notice Event emitted when the contract owner changes the maximum mint amount per transaction.
+     * @param owner The address of the contract owner who updated the maximum mint amount.
+     * @param newMaxMintAmount The new maximum mint amount per transaction.
+     */
+    event MaxMintAmountUpdated(address indexed owner, uint256 newMaxMintAmount);
+
+    /**
+     * @notice Event emitted when the contract owner updates the base URI for token metadata.
+     * @param owner The address of the contract owner who updated the base URI.
+     * @param newBaseURI The new base URI for token metadata.
+     */
+    event BaseURIUpdated(address indexed owner, string newBaseURI);
+
+    /**
+     * @notice Event emitted when the contract owner changes the contract's state (pauses or unpauses the contract).
+     * @param owner The address of the contract owner who changed the state.
+     * @param newState The new state of the contract (1 for paused, 2 for active).
+     */
+    event ContractStateChanged(address indexed owner, uint256 newState);
+
+    /**
+     * @notice Event emitted when the contract owner withdraws funds from the contract.
+     * @param owner The address of the contract owner who withdrew funds.
+     * @param amount The amount of funds withdrawn.
+     */
+    event FundsWithdrawn(address indexed owner, uint256 amount);
+
+
+    /**
     * @notice Constructor to initialize the DacadePunks NFT Collectible Contract.
     * @dev This contract allows users to mint unique collectible NFTs with various features and control mechanisms.
     * @param _maxSupply The maximum total supply of NFTs that can be minted by users.
@@ -110,6 +153,8 @@ contract DacadePunks is ERC721AQueryable, Ownable {
         
         // Mint the requested NFTs for the sender.
         _safeMint(msg.sender, _mintAmount);
+
+        emit NFTMinted(msg.sender, _mintAmount); // Emit NFTMinted event
     }
 
     
@@ -119,6 +164,7 @@ contract DacadePunks is ERC721AQueryable, Ownable {
      */
     function setCost(uint256 _newCost) external payable onlyOwner {
         cost = _newCost;
+        emit MintingCostUpdated(owner(), _newCost);
     }
 
     /**
@@ -132,6 +178,7 @@ contract DacadePunks is ERC721AQueryable, Ownable {
         onlyOwner
     {
         maxMintAmountPerTx = _newmaxMintAmount;
+        emit MaxMintAmountUpdated(owner(), _newmaxMintAmount); // Emit MaxMintAmountUpdated event
     }
 
     /**
@@ -141,6 +188,7 @@ contract DacadePunks is ERC721AQueryable, Ownable {
      */
     function setBaseURI(string memory _newBaseURI) external payable onlyOwner {
         baseURI = _newBaseURI;
+        emit BaseURIUpdated(owner(), _newBaseURI); // Emit BaseURIUpdated event
     }
 
     /**
@@ -150,7 +198,7 @@ contract DacadePunks is ERC721AQueryable, Ownable {
      */
     function pause(uint256 _state) external payable onlyOwner {
         paused = _state;
-    }
+         emit ContractStateChanged(owner(), _state); // Emit ContractStateChanged event    }
 
     /**
      * @notice Withdraw any ether balance from the contract. Only the contract owner can withdraw funds.
@@ -161,6 +209,9 @@ contract DacadePunks is ERC721AQueryable, Ownable {
             ""
         );
         require(success);
+
+        // Emit FundsWithdrawn event
+        emit FundsWithdrawn(msg.sender, address(this).balance);
     }
 
     /**
